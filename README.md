@@ -13,7 +13,7 @@ This is a Python script that automates the downloading of movie trailers from Yo
 ---
 # Why?
 
-This application adds to the cinematic feel of your Plex setup by adding trailers of unreleased movies to your library.
+This application adds to the cinematic feel of your Plex setup by adding trailers of unreleased movies to your library and apparently really pisses off the wife!
 
 ---
 

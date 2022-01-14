@@ -17,6 +17,7 @@ from ConfigMapper.configMapper import ConfigSectionMap
 
 
 # Global items
+cacheList = []
 MovieDict = {}
 MovieList = []
 DirsDict = {}
@@ -54,9 +55,6 @@ cacheRefresh = int(ConfigSectionMap("main", configfile)['cacherefresh'])
 if not os.path.exists(os.path.join(TheaterTrailersHome, "Cache")):
   os.makedirs(os.path.join(TheaterTrailersHome, "Cache"))
 cacheDir = os.path.join(TheaterTrailersHome, "Cache")
-if not os.path.isfile(os.path.join(cacheDir, 'theaterTrailersCache.json')):
-  with open(os.path.join(cacheDir, 'theaterTrailersCache.json'), 'w') as touch:
-    pass
 
 
 # Pause in seconds. TMDB has a rate limit of 40 requests per 10 seconds
@@ -109,7 +107,7 @@ def main():
           tempList = search.results
           tempList.reverse()
           for s in tempList:
-            releaseDate = s['release_date']
+            releaseDate = s.get('release_date', '1900-01-01')
             movieTMDBID = s['id']
             releaseDateList = releaseDate.split('-')
             try:
@@ -149,7 +147,7 @@ def addToRadarr(movieTitle, yearVar, tmdbMovieKey, radarrRootFolderPath):
     return
   else:
     headers = {
-      'X-Api-Key': radarrKey
+     'X-Api-Key': radarrKey
     }
     r = requests.post('http://{0}:{1}/{2}/api/movie/'.format(radarrHost, radarrPort, radarrURI), headers=headers, json={
       "title": "{0} ({1})".format(movieTitle, yearVar),
@@ -173,31 +171,39 @@ def checkCashe():
             age = Current_Date - creationDate
             age = age.days
             logger.info('The cache is {0} days old'.format(age))
-            if(age==cacheRefresh):
+            if (age >= cacheRefresh):
               logger.info('The cache will be refreshed')
               os.remove(os.path.join(cacheDir, 'theaterTrailersCache.json'))
-            try:
-              checkVar = cacheDict[cacheDict.keys()[0]]['status']
-              checkVar = cacheDict[cacheDict.keys()[0]]['TMDB ID']
-              checkVar = cacheDict[cacheDict.keys()[0]]['url']
-              checkVar = cacheDict[cacheDict.keys()[0]]['Trailer Release']
-              checkVar = cacheDict[cacheDict.keys()[0]]['Movie Title']
-              checkVar = cacheDict[cacheDict.keys()[0]]['path']
-              checkVar = cacheDict[cacheDict.keys()[0]]['Release Date']
-            except KeyError as e:
-              logger.info('The cache is missing variables. Removing it.')
-	      print e, 
-              os.remove(os.path.join(cacheDir, 'theaterTrailersCache.json'))
-
-
+              open(os.path.join(cacheDir, 'theaterTrailersCache.json'), 'w').close()
+            else:  
+              attrib_set = ['url', 'Trailer Release', 'Movie Title', 'Release Date', 'TMDB ID', 'path', 'status' ]                                          
+              for item in cacheDict:
+                if item == 'Creation Date':
+                  continue
+                attribs = (list(cacheDict[item].keys()))
+                for attrib in attrib_set:
+                  if attrib not in attribs:
+                    logger.warning('Cache is corrupt.')
+                    fp.close() 
+                    try:
+                      os.remove(os.path.join(cacheDir, 'theaterTrailersCache.json'))
+                    except OSError as e:
+                      logger.info('OSError {0}'.format(e))
+                    open(os.path.join(cacheDir, 'theaterTrailersCache.json'), 'w').close()
+                    return       
+                    
           except ValueError as e:
             logger.info("ValueError {0}".format(e))
             logger.info("Cache file empty")
-
+      
+      else:
+        logger.info("Cache file not found. Creating...")
+        open(os.path.join(cacheDir, 'theaterTrailersCache.json'), 'w').close()
+    
     else:
-      logger.info("making cache dir")
+      logger.info("Creating cache directory and file...")
       os.makedirs(cacheDir)
-
+      open(os.path.join(cacheDir, 'theaterTrailersCache.json'), 'w').close()
 
 def checkDownloadDate(passedTitle):
   try:
@@ -301,17 +307,41 @@ def videoDownloader(string, passedTitle, yearVar):
     'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
   }
   with youtube_dl.YoutubeDL(ydl1_opts) as ydl:
-    logger.info("downloading {0} from {1}".format(passedTitle, string))
-    ydl.download([string])
+    logger.info("downloading {0} from {1}...".format(passedTitle, string))
+    try:
+      ydl.cache.remove()
+      ydl.download([string])
+    except youtube_dl.DownloadError as error:
+      return
+    time.sleep(3)  
+  
+  os.chmod(os.path.join(TheaterTrailersHome, 'Trailers', '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar)), 0o777)
+  if not (trailerLocation == os.path.join(TheaterTrailersHome, 'Trailers')):
+    if not os.path.exists(os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar))):
+      os.makedirs(os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar)))
+    try:
+      shutil.copy2(
+          os.path.join(TheaterTrailersHome, 'Trailers', '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar)),
+          os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar))
+        )
+    except OSError as e:
+      logger.error('OSERROR: {0}'.format(e))
+      logger.info('INFO: Skipping {0}'.format(passedTitle))
+      return
+  try:
     shutil.copy2(
         os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar)),
         os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1})-trailer.mp4'.format(passedTitle, yearVar))
       )
     shutil.copy2(
         os.path.join(TheaterTrailersHome, 'res', 'poster.jpg'),
-        os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar))
+        os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), 'poster.jpg')
       )
-    updatePlex()
+  except OSError as e:
+    logger.error('OSERROR: {0}'.format(e))
+    logger.info('INFO: Skipping {0}'.format(passedTitle))
+    return 
+  updatePlex()
 
 
 # Downloads info for the videos from the playlist
@@ -331,7 +361,7 @@ def infoDownloader(playlist):
     info = ydl.extract_info(playlist)
 
   for x in info['entries']:
-    MovieVar = x['title'].encode('ascii',errors='ignore')
+    MovieVar = x['title']
     MovieVar = MovieVar.replace(':', '')
     if 'Official' in MovieVar:
       regexedTitle = re.search('^.*(?=(Official))', MovieVar)
@@ -449,7 +479,7 @@ def cleanup():
 def noCacheCleanup(dirsTitle, dirsYear):
   s = tmdbInfo(dirsTitle)
   for s in search.results:
-    releaseDate = s['release_date']
+    releaseDate = s.get('release_date', '1900-01-01')
     releaseDateList = releaseDate.split('-')
     if dirsYear == releaseDateList[0]:
       if releaseDate <= currentDate:

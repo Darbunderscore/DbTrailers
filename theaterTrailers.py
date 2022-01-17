@@ -1,7 +1,9 @@
 #!/usr/bin/python
 
 from __future__ import unicode_literals
+from asyncore import ExitNow
 from datetime import datetime
+from traceback import print_exception
 import youtube_dl
 import tmdbsimple as tmdb
 import logging
@@ -11,13 +13,13 @@ import re
 import os
 import time
 import requests
+import sys
 
 #Local Modules
 from ConfigMapper.configMapper import ConfigSectionMap
 
 
 # Global items
-cacheList = []
 MovieDict = {}
 MovieList = []
 DirsDict = {}
@@ -28,10 +30,15 @@ search = tmdb.Search()
 TheaterTrailersHome = os.path.dirname(os.path.realpath(__file__))
 
 # Sets the location of the trailers.conf file
-configfile = os.path.join(TheaterTrailersHome, 'Config', 'trailers.conf')
+if os.path.isfile(os.path.join(TheaterTrailersHome, 'Config', 'trailers.conf')):
+  configfile = os.path.join(TheaterTrailersHome, 'Config', 'trailers.conf')
+else:
+  sys.exit("{0} not found!".format(os.path.join(TheaterTrailersHome, 'Config', 'trailers.conf')))
 
 # Config Variables
 tmdb.API_KEY = ConfigSectionMap("main", configfile)['tmdb_api_key']
+if tmdb.API_KEY == "replaceMeWithYourApiKey" or tmdb.API_KEY == "":
+  sys.exit("TMDB API Key not defined in {0}".format(os.path.join(TheaterTrailersHome, 'Config', 'trailers.conf')))
 playlistEndVar = int(ConfigSectionMap("main", configfile)['playlistendvar'])
 youtubePlaylist = ConfigSectionMap("main", configfile)['youtubeplaylist']
 runCleanup = ConfigSectionMap("main", configfile)['runcleanup']
@@ -161,6 +168,7 @@ def addToRadarr(movieTitle, yearVar, tmdbMovieKey, radarrRootFolderPath):
 
 
 def checkCashe():
+    logger.info("Checking cache...")
     if os.path.exists(cacheDir):
       if os.path.isfile(os.path.join(cacheDir, 'theaterTrailersCache.json')):
         with open(os.path.join(cacheDir, 'theaterTrailersCache.json')) as fp:
@@ -302,7 +310,7 @@ def updateCache(string, passedTitle, yearVar):
 def videoDownloader(string, passedTitle, yearVar):
   # Options for the video downloader
   ydl1_opts = {
-    'outtmpl': os.path.join(TheaterTrailersHome, 'Trailers', '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar)),
+    'outtmpl': os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar)),
     'ignoreerrors': True,
     'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
   }
@@ -315,19 +323,7 @@ def videoDownloader(string, passedTitle, yearVar):
       return
     time.sleep(3)  
   
-  os.chmod(os.path.join(TheaterTrailersHome, 'Trailers', '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar)), 0o777)
-  if not (trailerLocation == os.path.join(TheaterTrailersHome, 'Trailers')):
-    if not os.path.exists(os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar))):
-      os.makedirs(os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar)))
-    try:
-      shutil.copy2(
-          os.path.join(TheaterTrailersHome, 'Trailers', '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar)),
-          os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar))
-        )
-    except OSError as e:
-      logger.error('OSERROR: {0}'.format(e))
-      logger.info('INFO: Skipping {0}'.format(passedTitle))
-      return
+  os.chmod(os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar)), 0o777)
   try:
     shutil.copy2(
         os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), '{0} ({1}).mp4'.format(passedTitle, yearVar)),
@@ -335,18 +331,20 @@ def videoDownloader(string, passedTitle, yearVar):
       )
     shutil.copy2(
         os.path.join(TheaterTrailersHome, 'res', 'poster.jpg'),
-        os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), 'poster.jpg')
+        os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar))
       )
+    os.chmod(os.path.join(trailerLocation, '{0} ({1})'.format(passedTitle, yearVar), 'poster.jpg'), 0o777)
   except OSError as e:
     logger.error('OSERROR: {0}'.format(e))
     logger.info('INFO: Skipping {0}'.format(passedTitle))
-    return 
+    return
   updatePlex()
 
 
 # Downloads info for the videos from the playlist
 def infoDownloader(playlist):
   # Options for the info downloader
+  logger.info("Downloading movie info...")
   ydl_opts = {
     'skip_download': True,
     'ignoreerrors': True,
@@ -445,12 +443,14 @@ def checkFiles(title, year):
 
 # Gets a list of the movies in the directory and removes old movies
 def cleanup():
-  if not os.path.isdir(os.path.join(TheaterTrailersHome, 'Trailers')):
+  logger.info("Running cleanup....")
+  if not os.path.isdir(os.path.join(TheaterTrailersHome, trailerLocation)):
+    logger.warning("Trailer directory not found.")
     return
   else:
-    if os.path.isfile(os.path.join(TheaterTrailersHome, 'Trailers', '.DS_Store')):
-      os.remove(os.path.join(TheaterTrailersHome, 'Trailers', '.DS_Store'))
-    dirsList = os.listdir(os.path.join(TheaterTrailersHome, 'Trailers'))
+    if os.path.isfile(os.path.join(TheaterTrailersHome, trailerLocation, '.DS_Store')):
+      os.remove(os.path.join(TheaterTrailersHome, trailerLocation, '.DS_Store'))
+    dirsList = os.listdir(os.path.join(TheaterTrailersHome, trailerLocation))
     for item in dirsList:
       dirsTitle = re.search('^.*(?=(\())', item)
       dirsTitle = dirsTitle.group(0).strip()
@@ -462,32 +462,31 @@ def cleanup():
           try:
             data = json.load(fp)
             releaseDate = data[keymaker(dirsTitle)]['Release Date']
+            logger.info("Movie: {0} Release Date: {1}".format(dirsTitle,releaseDate))
             if releaseDate <= currentDate:
-              logger.info("Removing {0}. Release date has passed".format(dirsTitle))
-              shutil.rmtree(os.path.join(TheaterTrailersHome, 'Trailers', '{0} ({1})'.format(dirsTitle, dirsYear)))
+              logger.info("Removing {0}. Release date has passed.".format(dirsTitle))
+              shutil.rmtree(os.path.join(TheaterTrailersHome, trailerLocation, '{0} ({1})'.format(dirsTitle, dirsYear)))
               updatePlex()
           except KeyError as ex:
             logger.info(ex)
-            logger.info("Removing {0}".format(dirsTitle))
-            shutil.rmtree(os.path.join(TheaterTrailersHome, 'Trailers', '{0} ({1})'.format(dirsTitle, dirsYear)))
+            logger.info("Removing {0}. Release date has passed.".format(dirsTitle))
+            shutil.rmtree(os.path.join(TheaterTrailersHome, trailerLocation, '{0} ({1})'.format(dirsTitle, dirsYear)))
             updatePlex()
           except ValueError as Ve:
-            logger.warning("Vaule Error {0} 431".format(Ve))
+            logger.warning("Value Error {0}".format(Ve))
             noCacheCleanup(dirsTitle, dirsYear)
-
 
 def noCacheCleanup(dirsTitle, dirsYear):
   s = tmdbInfo(dirsTitle)
   for s in search.results:
     releaseDate = s.get('release_date', '1900-01-01')
     releaseDateList = releaseDate.split('-')
-    if dirsYear == releaseDateList[0]:
+    if dirsYear >= releaseDateList[0]:
       if releaseDate <= currentDate:
-        logger.info("Removing {0}".format(dirsTitle))
-        shutil.rmtree(os.path.join(TheaterTrailersHome, 'Trailers', '{0} ({1})'.format(dirsTitle, dirsYear)))
+        logger.info("Removing {0}. Release date has passed.".format(dirsTitle))
+        shutil.rmtree(os.path.join(TheaterTrailersHome, trailerLocation, '{0} ({1})'.format(dirsTitle, dirsYear)))
         updatePlex()
-
-    break
+        break
 
 
 if __name__ == "__main__":

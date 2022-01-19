@@ -28,7 +28,7 @@ This application adds to the cinematic feel of your Plex setup by adding trailer
 # Installation
 
 
-### From withing your OS
+### From within your OS
 
 1. Install Python. This module supports 2.7.x. 3.x support can be spotty. Raise a github issue if you spot a compatibility error
    * Python for Windows can be found [here](https://www.python.org/downloads/windows/)

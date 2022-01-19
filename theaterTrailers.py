@@ -421,6 +421,7 @@ def checkFiles(title, year):
         os.path.join(TheaterTrailersHome, 'res', 'poster.jpg'),
         os.path.join(trailerLocation, '{0} ({1})'.format(title, year))
       )
+      os.chmod(os.path.join(trailerLocation, '{0} ({1})'.format(title, year), 'poster.jpg'), 0o777)
       updatePlex()
     return True
   if os.path.isfile(os.path.join(trailerLocation, '{0} ({1})'.format(title, year), '{0} ({1})-trailer.mp4'.format(title, year))):
@@ -435,6 +436,7 @@ def checkFiles(title, year):
         os.path.join(TheaterTrailersHome, 'res', 'poster.jpg'),
         os.path.join(trailerLocation, '{0} ({1})'.format(title, year))
       )
+      os.chmod(os.path.join(trailerLocation, '{0} ({1})'.format(title, year), 'poster.jpg'), 0o777)
       updatePlex()
     return True
   else:

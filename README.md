@@ -7,7 +7,7 @@ This is a Python script that automates the downloading of movie trailers from Yo
 1. checkcashe function: Made it compatible with python3.
 2. videodownloader function: Delete the youtube_dl cache before each download to cut down on 403: forbidden errors
 3. videodownloader function: Added a 3 second pause after download to account for post-processing and eliminate file copy errors
-4. videodownloader function: Performing a chmod on the downloaded file and poster.jpg to 755 to resolve access issues if you're using a different user for the cron job
+4. videodownloader function: Performing a chmod on the downloaded file and poster.jpg to 777 to resolve access issues if you're using a different user for the cron job
 5. videodownloader function: Fixed some glitches with file copies when you're using a custom library location in the .config
 6. Misc. fixes by TristBella via [theatertrailers.txt](https://github.com/Electronickss/TheaterTrailers/files/6013437/theaterTrailers.txt)
 7. cleanup function: Now references trailerLocation instead of the default Trailers directory so cleanup can be ran even if using non-default location.

@@ -1,4 +1,4 @@
-# DbTrailers
+# Plex Theater Trailers
 
 This project is a fork of [TheaterTrailers](https://github.com/Electronickss/TheaterTrailers) by [Electronickss](https://github.com/Electronickss) and 99% of the code is still his. Other contributors are: [TristBella](https://github.com/TristBella).
 

@@ -3,14 +3,17 @@
 This project is a fork of [TheaterTrailers](https://github.com/Electronickss/TheaterTrailers) by [Electronickss](https://github.com/Electronickss) and 99% of the code is still his. Other contributors are: [TristBella](https://github.com/TristBella).
 
 This is a Python script that automates the downloading of movie trailers from YouTube using youtube-dl. Moive trailers are downloaded if their release date hasn't been reached. The videos will auto-delete when the movie is released. Files and folders are named with the standard naming convetions of  Plex and The Movie DB. A "Coming Soon" image is copied in as `poster.jpg` and two versions of the trailer are stored. One is stored with `-trailer` in the name so Plex recognizes it as the trailer and the other is recognized as the movie.
-## Fixes/Changes
+
+NOTE: Because of how this function is implemented, the *Recently Released Movies* and *Recently Added in Movies* categories will be populated with the "fake" movies. This is due to Plex only playing trailers for movies already in the Library. Also, the selection of trailers is random across all movies in the library. It is recommended to delete any existing trailers before implementing this script.
+
+## Fixes/Changes from Forked TheaterTrailers Project:
 1. checkcashe function: Made it compatible with python3.
-2. videodownloader function: Delete the youtube_dl cache before each download to cut down on 403: forbidden errors
-3. videodownloader function: Added a 3 second pause after download to account for post-processing and eliminate file copy errors
+2. videodownloader function: Now deletes the youtube_dl cache before each download to cut down on 403: forbidden errors
+3. videodownloader function: Added a 3 second pause after download to account for post-processing and to eliminate file copy errors
 4. videodownloader function: Performing a chmod on the downloaded file and poster.jpg to 777 to resolve access issues if you're using a different user for the cron job
 5. videodownloader function: Fixed some glitches with file copies when you're using a custom library location in the .config
 6. Misc. fixes by TristBella via [theatertrailers.txt](https://github.com/Electronickss/TheaterTrailers/files/6013437/theaterTrailers.txt)
-7. cleanup function: Now references trailerLocation instead of the default Trailers directory so cleanup can be ran even if using non-default location.
+7. cleanup function: Now references trailerLocation variable instead of the default Trailers directory so cleanup can be ran even if using non-default location.
 8. Checks for trailers.conf and non-default, non-empty value for TMDB API key.
 ---
 # Why?
